@@ -1,6 +1,6 @@
 .nitj-attendance-history {
-  margin-top: 4px;
-  color: var(--text-secondary, #485b73);
+  text-align: center;
+  vertical-align: middle;
   font-size: 11px;
   line-height: 1.35;
 }
@@ -13,27 +13,25 @@
 .nitj-attendance-chart-trend {
   stroke: var(--text-secondary, #485b73);
   stroke-width: 1;
-  stroke-dasharray: 2 2;
+  stroke-dasharray: 5 4;
+  pointer-events: none;
 }
 
-.nitj-attendance-chart path {
-  fill: none;
-  stroke: currentColor;
-  stroke-width: 1.5;
-  stroke-linecap: round;
-  stroke-linejoin: round;
-}
-
-.nitj-attendance-chart circle {
+.nitj-attendance-chart-bar {
   fill: currentColor;
 }
 
 .nitj-attendance-chart-trigger {
-  display: block;
-  padding: 3px 5px;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 7px;
   border: 1px solid var(--border, #d5dfeb);
   border-radius: 5px;
   background: var(--bg-raised, #f5f8fc);
+  color: var(--text-primary, #182538);
+  font: inherit;
+  white-space: nowrap;
   cursor: zoom-in;
 }
 
@@ -43,12 +41,23 @@
   background: var(--bg-hover, #e7eff9);
 }
 
+.nitj-attendance-chart-expand {
+  color: var(--text-secondary, #485b73);
+  font-size: 14px;
+}
+
 .nitj-attendance-momentum[data-direction="rising"] {
   color: var(--success, #166534);
 }
 
 .nitj-attendance-momentum[data-direction="falling"] {
   color: var(--danger, #a12020);
+}
+
+@media (max-width: 767px) {
+  .nitj-attendance-chart-trigger > .nitj-attendance-chart {
+    display: none;
+  }
 }
 
 .nitj-attendance-chart-dialog {
@@ -98,10 +107,6 @@
 .nitj-attendance-chart-dialog .nitj-attendance-chart {
   width: 100%;
   height: auto;
-}
-
-.nitj-attendance-chart-dialog .nitj-attendance-chart-trend {
-  stroke-dasharray: 5 4;
 }
 
 .nitj-attendance-chart-guide {

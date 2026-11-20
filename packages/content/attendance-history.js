@@ -44,10 +44,11 @@ function renderChart(weeks, trend, label, expanded = false) {
     : { width: 76, height: 24, left: 2, right: 2, top: 2, bottom: 2 };
   const firstWeek = weeks[0].week;
   const span = weeks.at(-1).week - firstWeek;
-  const xFor = (elapsed) => span === 0
-    ? (left + width - right) / 2
-    : left + (elapsed / span) * (width - left - right);
-  const yFor = (percentage) => height - bottom - (percentage / 100) * (height - top - bottom);
+  const weekWidth = (width - left - right) / (span + 1);
+  const barWidth = Math.min(weekWidth * 0.72, expanded ? 28 : 10);
+  const baseline = height - bottom;
+  const xFor = (elapsed) => left + (elapsed + 0.5) * weekWidth;
+  const yFor = (percentage) => baseline - (percentage / 100) * (baseline - top);
   const chart = document.createElementNS(SVG_NS, "svg");
   chart.classList.add("nitj-attendance-chart");
   chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
@@ -88,7 +89,25 @@ function renderChart(weeks, trend, label, expanded = false) {
     chart.setAttribute("aria-hidden", "true");
   }
 
-  if (trend) {
+  for (const { week, percentage } of weeks) {
+    const y = yFor(percentage);
+    const bar = document.createElementNS(SVG_NS, "rect");
+    bar.classList.add("nitj-attendance-chart-bar");
+    bar.setAttribute("x", xFor(week - firstWeek) - barWidth / 2);
+    bar.setAttribute("width", barWidth);
+    // A baseline mark distinguishes a recorded zero from a week without marks.
+    bar.setAttribute("y", percentage === 0 ? baseline - 1 : y);
+    bar.setAttribute("height", percentage === 0 ? 1 : baseline - y);
+    bar.setAttribute("rx", expanded ? "2" : "0.5");
+    if (expanded) {
+      const title = document.createElementNS(SVG_NS, "title");
+      title.textContent = `Week of ${weekFormat.format(getAttendanceWeekStart(week))} · ${numberFormat.format(percentage)}%`;
+      bar.appendChild(title);
+    }
+    chart.appendChild(bar);
+  }
+
+  if (expanded && trend) {
     let start = 0;
     let end = span;
     if (trend.slope !== 0) {
@@ -106,29 +125,6 @@ function renderChart(weeks, trend, label, expanded = false) {
     chart.appendChild(trendline);
   }
 
-  const line = document.createElementNS(SVG_NS, "path");
-  chart.appendChild(line);
-
-  const commands = [];
-  let previousWeek = firstWeek - 2;
-  for (const { week, percentage } of weeks) {
-    const x = xFor(week - firstWeek);
-    const y = yFor(percentage);
-    commands.push(`${week === previousWeek + 1 ? "L" : "M"}${x} ${y}`);
-    previousWeek = week;
-
-    const dot = document.createElementNS(SVG_NS, "circle");
-    dot.setAttribute("cx", x);
-    dot.setAttribute("cy", y);
-    dot.setAttribute("r", expanded ? "3" : "1.5");
-    if (expanded) {
-      const title = document.createElementNS(SVG_NS, "title");
-      title.textContent = `Week of ${weekFormat.format(getAttendanceWeekStart(week))} · ${numberFormat.format(percentage)}%`;
-      dot.appendChild(title);
-    }
-    chart.appendChild(dot);
-  }
-  line.setAttribute("d", commands.join(" "));
   return chart;
 }
 
@@ -189,10 +185,15 @@ function renderHistory(container, weeks, courseCode) {
   trigger.type = "button";
   trigger.title = "Expand weekly attendance chart";
   trigger.setAttribute("aria-haspopup", "dialog");
-  trigger.setAttribute("aria-label", `Expand weekly attendance chart for ${courseCode}. ${description}`);
-  trigger.appendChild(renderChart(weeks, trend, ""));
+  trigger.setAttribute("aria-label", `${badge.textContent}. Expand weekly attendance chart for ${courseCode}. ${description}`);
+
+  const expand = document.createElement("span");
+  expand.className = "nitj-attendance-chart-expand";
+  expand.setAttribute("aria-hidden", "true");
+  expand.textContent = "⤢";
+  trigger.append(renderChart(weeks, trend, ""), badge, expand);
   trigger.addEventListener("click", () => openChart(trigger, weeks, trend, courseCode, description));
-  container.replaceChildren(trigger, badge);
+  container.replaceChildren(trigger);
 }
 
 async function loadHistory({ url, container, courseCode }) {
@@ -217,9 +218,9 @@ async function loadHistory({ url, container, courseCode }) {
 }
 
 export async function loadAttendanceHistories(courses) {
-  const entries = courses.map(({ courseCell, detailCell }) => ({
-    courseCell,
-    courseCode: courseCell.innerText.trim(),
+  const entries = courses.map(({ courseCode, detailCell, trendCell }) => ({
+    courseCode,
+    container: trendCell,
     url: findDetailUrl(detailCell),
   }));
   const linkCounts = new Map();
@@ -228,9 +229,7 @@ export async function loadAttendanceHistories(courses) {
   }
 
   const requests = [];
-  for (const { courseCell, courseCode, url } of entries) {
-    const container = document.createElement("div");
-    container.className = "nitj-attendance-history";
+  for (const { container, courseCode, url } of entries) {
     // A shared link cannot identify an individual course's report.
     if (linkCounts.get(url) === 1) {
       container.textContent = "Loading history…";
@@ -238,7 +237,6 @@ export async function loadAttendanceHistories(courses) {
     } else {
       container.textContent = "History unavailable";
     }
-    courseCell.appendChild(container);
   }
 
   for (let start = 0; start < requests.length; start += REQUEST_BATCH_SIZE) {

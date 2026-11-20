@@ -1,4 +1,5 @@
 import { summarizeAttendance } from "../core/attendance-statistics.mjs";
+import { renderAttendanceBoxPlot } from "./attendance-boxplot.js";
 import { loadAttendanceHistories } from "./attendance-history.js";
 import "./attendance-summary.css";
 
@@ -47,10 +48,12 @@ import "./attendance-summary.css";
         list.appendChild(metric);
       }
 
-      summary.appendChild(list);
+      summary.append(list, renderAttendanceBoxPlot(stats, formatter));
     }
 
-    table.after(summary);
+    const caption = table.createCaption();
+    caption.classList.add("nitj-attendance-summary-caption");
+    caption.prepend(summary);
   }
 
   function run() {
@@ -60,20 +63,31 @@ import "./attendance-summary.css";
     const table = tables[1];
     const rows = table.querySelectorAll("tr");
     if (!rows.length) return;
-    if (rows[0].innerText.includes("Attendance Deficit")) return;
-    const th = document.createElement("th");
-    th.textContent = "Attendance Deficit";
-    th.style.fontFamily = "Verdana";
-    th.style.fontSize = "11px";
-    th.style.textAlign = "center";
-    rows[0].insertBefore(th, rows[0].children[rows[0].children.length - 1]);
+    const header = rows[0];
+    if (header.innerText.includes("Attendance Deficit")) return;
+    const originalColumnCount = header.cells.length;
+    const reportHeader = header.lastElementChild;
+    for (const label of ["Weekly trend", "Attendance Deficit"]) {
+      const th = document.createElement("th");
+      th.scope = "col";
+      th.textContent = label;
+      th.style.fontFamily = "Verdana";
+      th.style.fontSize = "11px";
+      th.style.textAlign = "center";
+      header.insertBefore(th, reportHeader);
+    }
 
     const percentages = [];
     const courses = [];
     for (let i = 1; i < rows.length; i++) {
       const row = rows[i];
       const cols = row.querySelectorAll("td");
-      if (cols.length < 6) continue;
+      if (cols.length < 6) {
+        if (cols.length === 1 && cols[0].colSpan === originalColumnCount) {
+          cols[0].colSpan += 2;
+        }
+        continue;
+      }
       const deliveredText = cols[2].innerText.trim();
       const attendedText = cols[3].innerText.trim();
       const delivered = parseInt(deliveredText, 10);
@@ -91,9 +105,15 @@ import "./attendance-summary.css";
         Number.isSafeInteger(attended) &&
         delivered > 0 &&
         attended <= delivered;
+      const detailCell = cols[cols.length - 1];
+      const trendCell = document.createElement("td");
+      trendCell.className = "nitj-attendance-history";
+      row.insertBefore(trendCell, detailCell);
       if (isCourseRow && hasValidCounts) {
         percentages.push((attended / delivered) * 100);
-        courses.push({ courseCell: cols[0], detailCell: cols[cols.length - 1] });
+        courses.push({ courseCode, detailCell, trendCell });
+      } else {
+        trendCell.textContent = "—";
       }
 
       let value = 0;
@@ -127,7 +147,7 @@ import "./attendance-summary.css";
         badge.textContent = value;
       }
       td.appendChild(badge);
-      row.insertBefore(td, cols[cols.length - 1]);
+      row.insertBefore(td, detailCell);
     }
 
     renderSummary(table, percentages);
