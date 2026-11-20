@@ -31,7 +31,7 @@
 
 ## What It Does
 
-**NITJ ERP Utils** is a lightweight browser extension that layers useful functionality on top of the NITJ ERP: surfacing attendance deficits, polishing the interface with dark mode support, and eliminating the manual math students shouldn't have to do.
+**NITJ ERP Utils** adds attendance insights and light and dark themes to the NITJ ERP.
 
 <br />
 
@@ -39,15 +39,21 @@
 
 |     | Feature                           | Description                                                                                            |
 | --- | --------------------------------- | ------------------------------------------------------------------------------------------------------ |
-| 🌙  | **Dark Mode**                     | System-aware dark theme for comfortable night-time browsing                                            |
+| 🌙  | **Light and Dark Themes**         | Choose System, Light, or Dark from the Theme selector in the ERP navigation or login card              |
 | 📅  | **Interactive Calendar**          | Visual calendar with day/month navigation, showing attendance per day and quick drill-down for details |
 | 📊  | **Attendance Deficit Calculator** | Instantly see how many classes you need to attend (or can skip) to hit 75%                             |
 | ⚡  | **Lightweight & Fast**            | Zero heavy dependencies - loads in milliseconds                                                        |
 | 🦊  | **Cross-Browser**                 | Works on Chrome, Brave, Opera, and Firefox                                                             |
 
+**System** is the default and follows your device or browser as it changes. Your selection is saved locally in your browser and applies across ERP pages.
+
 <br />
 
 ## Preview
+
+> Light theme on an attendance report with sample data.
+
+![Light Mode Preview](./assets/light-mode-preview.png)
 
 > Dark mode support across the ERP interface.
 

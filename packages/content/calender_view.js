@@ -70,6 +70,10 @@ import { calculateStreaks } from "../core/attendance.mjs";
       (period.toUpperCase() === "PM" ? 720 : 0);
   }
 
+  function escapeText(text) {
+    return text.replace(/&/g, "&amp;").replace(/</g, "&lt;").replace(/>/g, "&gt;");
+  }
+
   function injectCalendar() {
     if (document.getElementById("nitj-att-calendar")) return true;
 
@@ -182,6 +186,7 @@ import { calculateStreaks } from "../core/attendance.mjs";
       for (let d = 1; d <= daysInMonth; d++) {
         const cls = daysMap[d];
         let cellClass = "nitj-cal-day";
+        let status = "";
         let dot = "";
         let tooltip = "";
 
@@ -189,6 +194,7 @@ import { calculateStreaks } from "../core/attendance.mjs";
           const allP = cls.every((c) => c.status === "P");
           const allA = cls.every((c) => c.status === "A");
           cellClass += allP ? " nitj-p" : allA ? " nitj-a" : " nitj-mixed";
+          status = allP ? "P" : allA ? "A" : "M";
           dot =
             cls.length > 1
               ? `<span class="nitj-multi">${cls.length}</span>`
@@ -198,14 +204,16 @@ import { calculateStreaks } from "../core/attendance.mjs";
             .map(
               (c) => `
             <span class="nitj-tt-row">
-              <span class="nitj-tt-topic">${c.topic || c.type}</span>
+              <span class="nitj-tt-topic">${escapeText(c.topic || c.type)}</span>
             </span>`,
             )
             .join("");
           tooltip = `<div class="nitj-tooltip">${rows}</div>`;
         }
 
-        html += `<div class="${cellClass}">${d}${dot}${tooltip}</div>`;
+        const statusMark = status ? `<span class="nitj-cal-status">${status}</span>` : "";
+        const focusable = cls ? ' tabindex="0"' : "";
+        html += `<div class="${cellClass}"${focusable}>${d}${statusMark}${dot}${tooltip}</div>`;
       }
 
       html += `</div></div>`;
@@ -218,9 +226,9 @@ import { calculateStreaks } from "../core/attendance.mjs";
       style.id = "nitj-cal-styles";
       style.textContent = `
         #nitj-att-calendar {
-          background: var(--bg-panel, #111E30);
-          color: var(--text-primary, #E2EAF4);
-          border: 1px solid var(--border, #1F3352);
+          background: var(--nitj-surface);
+          color: var(--nitj-ink);
+          border: 1px solid var(--nitj-line);
           border-radius: 10px;
           padding: 16px;
           margin: 16px 0;
@@ -229,59 +237,60 @@ import { calculateStreaks } from "../core/attendance.mjs";
         .nitj-cal-header {
           display: flex; justify-content: space-between; align-items: center;
           font-size: 15px; font-weight: bold; margin-bottom: 10px;
-          color: var(--text-primary, #E2EAF4);
+          color: var(--nitj-ink);
         }
         .nitj-cal-toolbar {
-          display: flex; align-items: center; justify-content: space-between; gap: 12px;
+          display: flex; flex-wrap: wrap; align-items: center; justify-content: space-between; gap: 8px 12px;
           margin-bottom: 10px;
         }
         .nitj-term-label {
           font-size: 12px; font-weight: normal;
-          color: var(--text-secondary, #94A8C0); margin-left: 10px;
+          color: var(--nitj-secondary); margin-left: 10px;
         }
         .nitj-pct { font-size: 18px; font-weight: bold; }
-        .nitj-pct-ok   { color: var(--success, #10B981); }
-        .nitj-pct-warn { color: var(--warning, #F59E0B); }
+        .nitj-pct-ok   { color: var(--nitj-success); }
+        .nitj-pct-warn { color: var(--nitj-warning); }
         .nitj-view-toggle {
-          border: 1px solid var(--border-strong, #2A4570);
-          background: var(--bg-raised, #162436);
-          color: var(--text-primary, #E2EAF4);
+          border: 1px solid var(--nitj-control);
+          background: var(--nitj-raised);
+          color: var(--nitj-ink);
           border-radius: 999px; padding: 6px 12px; font-size: 12px;
           cursor: pointer; font-family: inherit;
         }
-        .nitj-view-toggle:hover { background: var(--bg-hover, #1C2E44); }
+        .nitj-view-toggle:hover { background: var(--nitj-hover); }
         .nitj-cal-stats {
           display: flex; gap: 16px; flex-wrap: wrap;
-          font-size: 12px; color: var(--text-secondary, #94A8C0); margin-bottom: 14px;
+          font-size: 12px; color: var(--nitj-secondary); margin-bottom: 14px;
         }
-        .nitj-cal-stats b { color: var(--text-primary, #E2EAF4); }
+        .nitj-cal-stats b { color: var(--nitj-ink); }
         .nitj-legend { display: flex; align-items: center; gap: 5px; }
-        .nitj-dot-p, .nitj-dot-a {
+        .nitj-legend-mark {
           width: 10px; height: 10px; border-radius: 50%; display: inline-block;
         }
-        .nitj-dot-p { background: var(--success, #10B981); }
-        .nitj-dot-a { background: var(--danger, #EF4444); }
+        .nitj-dot-p { background: var(--nitj-success); }
+        .nitj-dot-a { background: var(--nitj-missed); }
+        .nitj-dot-m { background: var(--nitj-warning); }
         .nitj-cal-months {
           display: grid;
-          grid-template-columns: repeat(auto-fit, minmax(180px, 1fr));
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 180px), 1fr));
           gap: 16px;
         }
         .nitj-cal-month {
-          background: var(--bg-raised, #162436);
-          border: 1px solid var(--border, #1F3352);
+          background: var(--nitj-raised);
+          border: 1px solid var(--nitj-line);
           border-radius: 8px; padding: 10px;
         }
         .nitj-cal-month-title {
-          font-size: 13px; font-weight: bold; color: var(--accent-blue, #3B82F6);
+          font-size: 13px; font-weight: bold; color: var(--nitj-blue);
           text-align: center; margin-bottom: 8px;
         }
         .nitj-cal-dow-row {
           display: grid; grid-template-columns: repeat(7, 1fr);
-          font-size: 10px; color: var(--text-muted, #5A7A99);
+          font-size: 10px; color: var(--nitj-secondary);
           text-align: center; margin-bottom: 4px;
         }
         .nitj-cal-grid {
-          display: grid; grid-template-columns: repeat(7, 1fr); gap: 2px;
+          display: grid; grid-template-columns: repeat(7, minmax(0, 1fr)); gap: 2px;
         }
         .nitj-cal-day, .nitj-cal-empty {
           height: 26px; border-radius: 4px;
@@ -289,43 +298,59 @@ import { calculateStreaks } from "../core/attendance.mjs";
           font-size: 11px; position: relative; overflow: visible;
         }
         .nitj-cal-day {
-          color: var(--text-secondary, #94A8C0);
-          background: var(--bg-input, #0F1E30);
+          color: var(--nitj-secondary);
+          background: var(--nitj-input);
         }
-        .nitj-p     { background: rgba(16,185,129,0.18) !important; color: var(--success, #10B981) !important; font-weight: bold; }
-        .nitj-a     { background: rgba(239,68,68,0.18)  !important; color: var(--danger,  #EF4444) !important; font-weight: bold; }
-        .nitj-mixed { background: rgba(245,158,11,0.16) !important; color: var(--warning, #F59E0B) !important; font-weight: bold; }
+        .nitj-p     { background: var(--nitj-success-bg); color: var(--nitj-success); font-weight: bold; }
+        .nitj-a     { background: var(--nitj-danger-bg); color: var(--nitj-danger); font-weight: bold; }
+        .nitj-mixed { background: var(--nitj-warning-bg); color: var(--nitj-warning); font-weight: bold; }
+        .nitj-cal-status { font-size: 9px; margin-inline-start: 2px; }
         .nitj-multi {
-          position: absolute; top: 1px; right: 2px;
-          font-size: 8px; opacity: 0.7;
+          position: absolute; top: 0; right: 2px;
+          font-size: 8px;
         }
 
         /* ── Tooltip ─────────────────────────────────────────── */
         .nitj-tooltip {
           display: none;
           position: absolute;
-          bottom: calc(100% + 6px);
+          bottom: 100%;
           left: 50%;
           transform: translateX(-50%);
-background: #0d1b2a;
-          border: 1px solid #2A4570;
+          background: var(--nitj-tooltip);
+          border: 1px solid var(--nitj-tooltip-border);
           border-radius: 6px;
           padding: 7px 10px;
           min-width: 150px;
           max-width: 220px;
           z-index: 9999;
-          pointer-events: none;
-          box-shadow: 0 4px 16px rgba(0,0,0,0.5);
+          box-shadow: var(--nitj-tooltip-shadow);
           flex-direction: column;
           gap: 5px;
         }
-        .nitj-cal-day:hover .nitj-tooltip { display: flex; }
+        .nitj-cal-day:not([data-nitj-tooltip-dismissed]):is(:hover, :focus) .nitj-tooltip { display: flex; }
+        .nitj-cal-day:focus-visible {
+          z-index: 1;
+          outline: 2px solid var(--nitj-focus);
+          outline-offset: 1px;
+        }
+        .nitj-cal-day:nth-child(7n + 1) .nitj-tooltip,
+        .nitj-cal-day:nth-child(7n + 2) .nitj-tooltip {
+          left: 0;
+          transform: none;
+        }
+        .nitj-cal-day:nth-child(7n) .nitj-tooltip,
+        .nitj-cal-day:nth-child(7n + 6) .nitj-tooltip {
+          left: auto;
+          right: 0;
+          transform: none;
+        }
         .nitj-tt-row { display: flex; flex-direction: column; gap: 2px; }
-        .nitj-tt-row + .nitj-tt-row { border-top: 1px solid #1F3352; padding-top: 5px; }
-        .nitj-tt-topic { font-size: 11px; color: #E2EAF4; line-height: 1.4; }
+        .nitj-tt-row + .nitj-tt-row { border-top: 1px solid var(--nitj-line); padding-top: 5px; }
+        .nitj-tt-topic { font-size: 11px; color: var(--nitj-ink); line-height: 1.4; overflow-wrap: anywhere; }
 
         #nitj-view-controls { margin: 16px 0 10px; }
-        #nitj-view-controls, #nitj-att-calendar { color: var(--text-primary, #E2EAF4); }
+        #nitj-view-controls, #nitj-att-calendar { color: var(--nitj-ink); }
 
         .nitj-streaks {
           display: grid;
@@ -335,20 +360,20 @@ background: #0d1b2a;
           margin: 0;
         }
         .nitj-streak {
-          --nitj-streak-tone: var(--success, #087751);
+          --nitj-streak-tone: var(--nitj-success);
           position: relative;
           min-width: 0;
           padding: 10px 12px 10px 50px;
-          border: 1px solid var(--border, #d6e1ec);
+          border: 1px solid var(--nitj-line);
           border-radius: 10px;
-          background: var(--bg-raised, #f8fafc);
-          color: var(--text-primary, #182b43);
+          background: var(--nitj-card);
+          color: var(--nitj-ink);
           overflow-wrap: anywhere;
         }
-        .nitj-streak--longest { --nitj-streak-tone: var(--accent-blue, #245fa5); }
-        .nitj-streak--empty { --nitj-streak-tone: var(--text-secondary, #4c6178); }
+        .nitj-streak--longest { --nitj-streak-tone: var(--nitj-blue); }
+        .nitj-streak--empty { --nitj-streak-tone: var(--nitj-secondary); }
         .nitj-streak dt {
-          color: var(--text-secondary, #4c6178);
+          color: var(--nitj-secondary);
           font-size: 12px;
           font-weight: 600;
         }
@@ -360,7 +385,7 @@ background: #0d1b2a;
           line-height: 1.2;
         }
         .nitj-streak--empty dd {
-          color: var(--text-secondary, #4c6178);
+          color: var(--nitj-secondary);
           font-size: 14px;
         }
         .nitj-streak-icon {
@@ -430,7 +455,7 @@ background: #0d1b2a;
           <div class="nitj-cal-toolbar">
             <div class="nitj-cal-header">
               <span class="nitj-pct ${pct >= 75 ? "nitj-pct-ok" : "nitj-pct-warn"}">${pct}%</span>
-              <span class="nitj-term-label">${semesterInfo.label}</span>
+              <span class="nitj-term-label">${escapeText(semesterInfo.label)}</span>
             </div>
             <button id="nitj-view-toggle" type="button" class="nitj-view-toggle" aria-pressed="true">
               Normal view
@@ -446,8 +471,9 @@ background: #0d1b2a;
             <span>Total classes: <b>${delivered}</b></span>
             <span>Attended: <b>${attended}</b></span>
             <span>Absent: <b>${delivered - attended}</b></span>
-            <span class="nitj-legend"><span class="nitj-dot-p"></span>Present</span>
-            <span class="nitj-legend"><span class="nitj-dot-a"></span>Absent</span>
+            <span class="nitj-legend"><span class="nitj-legend-mark nitj-dot-p"></span>P Present</span>
+            <span class="nitj-legend"><span class="nitj-legend-mark nitj-dot-a"></span>A Absent</span>
+            <span class="nitj-legend"><span class="nitj-legend-mark nitj-dot-m"></span>M Mixed or unmarked</span>
           </div>
           <div class="nitj-cal-months">
             ${renderedMonths.map((m) => buildMonth(m.year, m.month, m.days)).join("")}
@@ -456,6 +482,20 @@ background: #0d1b2a;
       </div>`;
 
     anchor.insertAdjacentHTML("afterend", shellHTML);
+
+    const calendar = document.getElementById("nitj-att-calendar");
+    const resetTooltip = (event) => {
+      const day = event.target.closest("[data-nitj-tooltip-dismissed]");
+      if (day && !day.contains(event.relatedTarget)) delete day.dataset.nitjTooltipDismissed;
+    };
+    calendar.addEventListener("pointerout", resetTooltip);
+    calendar.addEventListener("focusout", resetTooltip);
+    document.addEventListener("keydown", (event) => {
+      if (event.key !== "Escape") return;
+      for (const day of calendar.querySelectorAll(".nitj-cal-day[tabindex]:is(:focus, :hover)")) {
+        day.dataset.nitjTooltipDismissed = "";
+      }
+    });
 
     const toggle = document.getElementById("nitj-view-toggle");
     if (toggle && !toggle.dataset.bound) {

@@ -146,9 +146,8 @@ import attendanceCss from "./attendance.css?inline";
     if (rows[0].innerText.includes("Attendance Deficit")) return;
     const th = document.createElement("th");
     th.textContent = "Attendance Deficit";
-    th.style.fontFamily = "Verdana";
-    th.style.fontSize = "11px";
-    th.style.textAlign = "center";
+    th.className = "nitj-deficit";
+    th.scope = "col";
     rows[0].insertBefore(th, rows[0].children[rows[0].children.length - 1]);
     const subjects = [];
     const subjectTotals = [];
@@ -178,14 +177,9 @@ import attendanceCss from "./attendance.css?inline";
       }
       const value = deficit ?? 0;
       const td = document.createElement("td");
-      td.setAttribute("align", "center");
-      td.style.color = "#000000";
-      td.style.fontFamily = "Verdana";
-      td.style.fontSize = "12px";
-      td.style.verticalAlign = "middle";
+      td.className = "nitj-deficit";
       const badge = document.createElement("span");
       badge.classList.add("label");
-      badge.style.fontSize = "12px";
       if (value > 0) {
         badge.classList.add("label-success");
         badge.textContent = value;

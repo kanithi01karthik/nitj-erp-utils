@@ -24,7 +24,9 @@ module.exports = {
   content_scripts: [
     {
       matches: ["https://v1.nitj.ac.in/erp/*"],
+      exclude_matches: ["https://v1.nitj.ac.in/erp/library_seating*"],
 
+      css: ["packages/content/theme.css"],
       js: ["packages/content/darkmode.js"],
 
       run_at: "document_start",
