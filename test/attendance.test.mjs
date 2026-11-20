@@ -1,6 +1,6 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateDeficit, calculateScenario } from "../packages/core/attendance.mjs";
+import { calculateDeficit, calculateScenario, calculateStreaks } from "../packages/core/attendance.mjs";
 
 test("deficit keeps the existing signed badge values at and around 75%", () => {
   assert.equal(calculateDeficit(18, 22), 2);
@@ -38,4 +38,39 @@ test("deficit uses the exact target even when the percentage rounds to 75%", () 
   const scenario = calculateScenario(18, 24, 300000, 100001);
   assert.equal(scenario.percentage.toFixed(2), "75.00");
   assert.equal(scenario.deficit, -3);
+});
+
+test("streaks count consecutive classes across days and reset on absences", () => {
+  const classDays = [
+    [{ status: "P", startTime: 540 }, { status: "P", startTime: 660 }],
+    [{ status: "P", startTime: 540 }],
+    [{ status: "A", startTime: 540 }],
+    [{ status: "P", startTime: 540 }],
+  ];
+  assert.deepEqual(calculateStreaks(classDays), { current: 1, longest: 3 });
+  assert.deepEqual(calculateStreaks(classDays.slice(0, -1)), { current: 0, longest: 3 });
+});
+
+test("streaks order same-day sessions by time without rearranging the calendar data", () => {
+  const morning = { status: "P", startTime: 540 };
+  const afternoon = { status: "A", startTime: 780 };
+  const day = [afternoon, morning];
+  assert.deepEqual(calculateStreaks([day]), { current: 0, longest: 1 });
+  assert.deepEqual(day, [afternoon, morning]);
+  assert.deepEqual(
+    calculateStreaks([[afternoon, { status: "P", startTime: null }]]),
+    { current: 1, longest: 1 },
+  );
+});
+
+test("unmarked classes interrupt confirmed streaks and hide the current count when latest", () => {
+  const classDays = ["P", "P", "?", "P"].map((status) => [{ status, startTime: 540 }]);
+  assert.deepEqual(calculateStreaks(classDays), { current: 1, longest: 2 });
+  assert.deepEqual(calculateStreaks(classDays.slice(0, -1)), { current: null, longest: 2 });
+});
+
+test("streaks distinguish unavailable history from a recorded zero", () => {
+  assert.deepEqual(calculateStreaks([]), { current: null, longest: null });
+  assert.deepEqual(calculateStreaks([[{ status: "?", startTime: 540 }]]), { current: null, longest: null });
+  assert.deepEqual(calculateStreaks([[{ status: "A", startTime: 540 }]]), { current: 0, longest: 0 });
 });

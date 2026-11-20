@@ -37,3 +37,29 @@ export function calculateScenario(attended, delivered, futureAttended, futureMis
     deficit,
   };
 }
+
+export function calculateStreaks(classDays) {
+  let current = 0;
+  let longest = null;
+  let latestStatus;
+
+  for (const day of classDays) {
+    // shortcut: use ERP column order for incomplete start times, revisit if explicit ordering becomes available.
+    const ordered = day.every((entry) => entry.startTime !== null)
+      ? [...day].sort((a, b) => a.startTime - b.startTime)
+      : day;
+
+    for (const { status } of ordered) {
+      current = status === "P" ? current + 1 : 0;
+      if (status === "P" || status === "A") {
+        longest = Math.max(longest ?? 0, current);
+      }
+      latestStatus = status;
+    }
+  }
+
+  return {
+    current: latestStatus === "P" || latestStatus === "A" ? current : null,
+    longest,
+  };
+}

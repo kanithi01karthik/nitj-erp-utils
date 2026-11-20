@@ -1,3 +1,5 @@
+import { calculateStreaks } from "../core/attendance.mjs";
+
 (function () {
   const STORAGE_KEY = "nitj-att-calendar-view";
 
@@ -60,6 +62,14 @@
     saveView(view);
   }
 
+  function getClassStart(text) {
+    const match = text.match(/\b(0?[1-9]|1[0-2]):([0-5]\d)\s*([AP]M)\b/i);
+    if (!match) return null;
+    const [, hour, minute, period] = match;
+    return (Number(hour) % 12) * 60 + Number(minute) +
+      (period.toUpperCase() === "PM" ? 720 : 0);
+  }
+
   function injectCalendar() {
     if (document.getElementById("nitj-att-calendar")) return true;
 
@@ -93,8 +103,15 @@
           : "?";
       const topic =
         topicCells[i - 1]?.textContent.replace(/\s+/g, " ").trim() ?? "";
-      if (dateText)
-        classes.push({ date: dateText, type: typeText, status, topic });
+      if (dateText) {
+        classes.push({
+          date: parseDate(dateText),
+          startTime: getClassStart(hdr.innerText),
+          type: typeText,
+          status,
+          topic,
+        });
+      }
     }
 
     const attended =
@@ -120,7 +137,7 @@
 
     const months = {};
     classes.forEach((c) => {
-      const dt = parseDate(c.date);
+      const dt = c.date;
       const key = `${dt.getFullYear()}-${dt.getMonth()}`;
       if (!months[key])
         months[key] = {
@@ -325,6 +342,13 @@ background: #0d1b2a;
       )
       .sort((a, b) => a.year - b.year || a.month - b.month);
 
+    const classDays = classes.some(({ date }) => Number.isNaN(date.getTime()))
+      ? []
+      : renderedMonths.flatMap(({ days }) => Object.values(days));
+    const streaks = calculateStreaks(classDays);
+    const streakLabel = (count) =>
+      count === null ? "Unavailable" : `${count} ${count === 1 ? "class" : "classes"}`;
+
     const shellHTML = `
       <div id="nitj-calendar-shell">
         <div id="nitj-view-controls">
@@ -336,6 +360,10 @@ background: #0d1b2a;
             <button id="nitj-view-toggle" type="button" class="nitj-view-toggle" aria-pressed="true">
               Normal view
             </button>
+          </div>
+          <div class="nitj-cal-stats">
+            <span>Current streak: <b>${streakLabel(streaks.current)}</b></span>
+            <span>Longest streak: <b>${streakLabel(streaks.longest)}</b></span>
           </div>
         </div>
         <div id="nitj-att-calendar" hidden>
