@@ -4,52 +4,69 @@ import {
   calculateScenario,
   TARGET_PERCENT,
 } from "../core/attendance.mjs";
+import attendanceCss from "./attendance.css?inline";
 
 (function () {
-  function createDisclosure(label) {
-    const details = document.createElement("details");
-    details.style.marginBottom = "12px";
-    const summary = document.createElement("summary");
-    summary.style.cursor = "pointer";
-    summary.style.fontWeight = "bold";
-    summary.textContent = label;
-    details.append(summary);
-    return details;
-  }
-
   function injectCalculator(anchor, subjects) {
-    if (!subjects.length) return;
+    const calculator = document.createElement("details");
+    calculator.className = "nitj-att-surface nitj-att-planner";
+    calculator.innerHTML = `
+      <summary>
+        <span class="nitj-att-title">What-If Planner</span>
+        <span class="nitj-att-target">${TARGET_PERCENT}% target</span>
+      </summary>`;
+    anchor.before(calculator);
 
-    const calculator = createDisclosure("What if?");
+    if (!subjects.length) {
+      calculator.insertAdjacentHTML("beforeend", `
+        <p class="nitj-att-empty">Subject attendance data is unavailable.</p>`);
+      return;
+    }
+
     calculator.insertAdjacentHTML("beforeend", `
-      <div style="display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px">
-        <label style="flex: 1 1 220px; min-width: 0">
-          Subject
-          <select class="form-control input-sm"></select>
-        </label>
-        <div style="display: flex; flex: 0 1 292px; gap: 12px; min-width: 0">
-          <label style="flex: 1; min-width: 0">
-            Classes to attend
-            <input class="form-control input-sm" type="number" min="0" step="1" value="0">
+      <div class="nitj-planner-body">
+        <div class="nitj-planner-fields">
+          <label>
+            Subject
+            <select class="form-control input-sm"></select>
           </label>
-          <label style="flex: 1; min-width: 0">
-            Classes to miss
-            <input class="form-control input-sm" type="number" min="0" step="1" value="0">
-          </label>
+          <div class="nitj-planner-counts">
+            <label>
+              Classes to attend
+              <input class="form-control input-sm" type="number" min="0" step="1" value="0">
+            </label>
+            <label>
+              Classes to miss
+              <input class="form-control input-sm" type="number" min="0" step="1" value="0">
+            </label>
+          </div>
         </div>
-      </div>
-      <output style="display: block; margin-top: 4px; font-size: inherit; color: inherit" aria-live="polite"></output>`);
+        <output class="nitj-planner-result" aria-live="polite">
+          <span class="nitj-projection" hidden>Projected attendance <strong></strong></span>
+          <span class="nitj-planner-message"></span>
+        </output>
+      </div>`);
 
     const select = calculator.querySelector("select");
     const inputs = [...calculator.querySelectorAll("input")];
     const output = calculator.querySelector("output");
+    const projection = output.querySelector(".nitj-projection");
+    const projectedValue = projection.querySelector("strong");
+    const message = output.querySelector(".nitj-planner-message");
     for (const subject of subjects) {
       select.add(new Option(subject.name));
     }
 
+    function showResult(guidance, percentage = "", status = "") {
+      output.dataset.status = status;
+      projection.hidden = !percentage;
+      projectedValue.textContent = percentage;
+      message.textContent = guidance;
+    }
+
     function update() {
       if (inputs.some((input) => !input.validity.valid)) {
-        output.textContent = "Enter whole numbers of classes, zero or more.";
+        showResult("Enter whole numbers of classes, zero or more.");
         return;
       }
 
@@ -61,11 +78,11 @@ import {
         attended, delivered, futureAttended, futureMissed,
       );
       if (!scenario) {
-        output.textContent = "Enter smaller class counts.";
+        showResult("Enter smaller class counts.");
         return;
       }
       if (scenario.percentage === null) {
-        output.textContent = "Projected attendance is available once at least one class is counted.";
+        showResult("Projected attendance is available once at least one class is counted.");
         return;
       }
 
@@ -82,45 +99,48 @@ import {
       } else if (deficit > 0) {
         guidance = `You can miss ${classes} and stay at or above ${TARGET_PERCENT}%.`;
       }
-      output.textContent = `Projected attendance ${percentage}. ${guidance}`;
+      showResult(guidance, percentage, deficit < 0 ? "below-target" : "meets-target");
     }
 
     calculator.addEventListener("input", update);
     update();
-    anchor.before(calculator);
   }
 
-  function injectWaffle(anchor, totals) {
-    const waffle = createDisclosure("Overall attendance");
-    const content = document.createElement("div");
-    content.style.marginTop = "8px";
+  function createOverallCard(totals) {
+    const overall = document.createElement("section");
+    overall.className = "nitj-att-surface nitj-overall";
+    overall.innerHTML = `<h2 class="nitj-att-title">Overall Attendance</h2>`;
     if (!totals?.delivered) {
-      content.textContent = totals ? "No classes have been delivered." : "Overall attendance data is unavailable.";
-    } else {
-      const tile = (color) => `<span aria-hidden="true" style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: ${color}"></span>`;
-      const attendedTile = tile("var(--success, #2e7d32)");
-      const missedTile = tile("var(--danger, #c62828)");
-      content.innerHTML = `
-        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
-          <div aria-hidden="true" style="display: grid; grid-template-columns: repeat(10, 8px); gap: 2px">
-            ${attendedTile.repeat(totals.attendedTiles)}${missedTile.repeat(100 - totals.attendedTiles)}
-          </div>
-          <div>
-            <strong>${totals.percentage.toFixed(2)}% attendance</strong>
-            <div>${attendedTile} ${totals.attended} attended</div>
-            <div>${missedTile} ${totals.delivered - totals.attended} missed</div>
-          </div>
-        </div>`;
+      overall.insertAdjacentHTML("beforeend", `<p class="nitj-att-empty">${
+        totals ? "No classes have been delivered." : "Overall attendance data is unavailable."
+      }</p>`);
+      return overall;
     }
-    waffle.append(content);
-    anchor.before(waffle);
+
+    const { attended, attendedTiles, delivered, percentage } = totals;
+    const attendedTile = '<span class="nitj-attended"></span>';
+    const missedTile = '<span class="nitj-missed"></span>';
+    overall.insertAdjacentHTML("beforeend", `
+      <div class="nitj-overall-body">
+        <div class="nitj-overall-details">
+          <strong class="nitj-overall-value">${percentage.toFixed(2)}%</strong>
+          <progress class="nitj-att-progress" aria-label="Overall attendance" max="100" value="${percentage}"></progress>
+          <div class="nitj-att-counts">
+            <span class="nitj-attended"><strong>${attended}</strong> attended</span>
+            <span class="nitj-missed"><strong>${delivered - attended}</strong> missed</span>
+          </div>
+        </div>
+        <div class="nitj-waffle" aria-hidden="true">
+          ${attendedTile.repeat(attendedTiles)}${missedTile.repeat(100 - attendedTiles)}
+        </div>
+      </div>`);
+    return overall;
   }
 
   function run() {
     if (window.location.pathname.includes("attendance_report_detail")) return;
-    const tables = document.querySelectorAll(".panel-body table.table");
-    if (tables.length < 2) return;
-    const table = tables[1];
+    const [studentTable, table] = document.querySelectorAll(".panel-body table.table");
+    if (!table) return;
     const rows = table.querySelectorAll("tr");
     if (!rows.length) return;
     if (rows[0].innerText.includes("Attendance Deficit")) return;
@@ -179,10 +199,20 @@ import {
       td.appendChild(badge);
       row.insertBefore(td, cols[cols.length - 1]);
     }
-    // Keep scenario inputs out of any surrounding ERP form.
-    const anchor = table.closest("form") ?? table;
+    const style = document.createElement("style");
+    style.textContent = attendanceCss;
+    document.head.append(style);
+
+    // Keep the planner outside the ERP form and the table's scroll area.
+    const anchor = table.closest("form") ?? table.closest(".table-responsive") ?? table;
+    const overall = createOverallCard(calculateAttendanceWaffle(subjectTotals));
+    const studentPanel = studentTable.closest(".panel");
+    if (studentPanel && !studentPanel.contains(table)) {
+      studentPanel.after(overall);
+    } else {
+      anchor.before(overall);
+    }
     injectCalculator(anchor, subjects);
-    injectWaffle(anchor, calculateAttendanceWaffle(subjectTotals));
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run);

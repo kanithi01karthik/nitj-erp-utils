@@ -326,6 +326,78 @@ background: #0d1b2a;
 
         #nitj-view-controls { margin: 16px 0 10px; }
         #nitj-view-controls, #nitj-att-calendar { color: var(--text-primary, #E2EAF4); }
+
+        .nitj-streaks {
+          display: grid;
+          grid-template-columns: repeat(auto-fit, minmax(min(100%, 156px), 1fr));
+          gap: 8px;
+          max-width: 384px;
+          margin: 0;
+        }
+        .nitj-streak {
+          --nitj-streak-tone: var(--success, #087751);
+          position: relative;
+          min-width: 0;
+          padding: 10px 12px 10px 50px;
+          border: 1px solid var(--border, #d6e1ec);
+          border-radius: 10px;
+          background: var(--bg-raised, #f8fafc);
+          color: var(--text-primary, #182b43);
+          overflow-wrap: anywhere;
+        }
+        .nitj-streak--longest { --nitj-streak-tone: var(--accent-blue, #245fa5); }
+        .nitj-streak--empty { --nitj-streak-tone: var(--text-secondary, #4c6178); }
+        .nitj-streak dt {
+          color: var(--text-secondary, #4c6178);
+          font-size: 12px;
+          font-weight: 600;
+        }
+        .nitj-streak dd {
+          margin: 2px 0 0;
+          font-size: 18px;
+          font-variant-numeric: tabular-nums;
+          font-weight: 700;
+          line-height: 1.2;
+        }
+        .nitj-streak--empty dd {
+          color: var(--text-secondary, #4c6178);
+          font-size: 14px;
+        }
+        .nitj-streak-icon {
+          position: absolute;
+          top: 50%;
+          inset-inline-start: 11px;
+          display: grid;
+          place-items: center;
+          width: 28px;
+          height: 28px;
+          border-radius: 7px;
+          background: color-mix(in srgb, var(--nitj-streak-tone) 14%, transparent);
+          color: var(--nitj-streak-tone);
+          transform: translateY(-50%);
+        }
+        .nitj-streak-icon::before {
+          grid-area: 1 / 1;
+          width: 6px;
+          height: 11px;
+          border: solid currentColor;
+          border-width: 0 2px 2px 0;
+          transform: translateY(-1px) rotate(45deg);
+          content: "";
+        }
+        .nitj-streak--longest .nitj-streak-icon::before {
+          width: 8px;
+          height: 8px;
+          border-width: 2px 2px 0 0;
+          transform: translateY(-3px) rotate(-45deg);
+        }
+        .nitj-streak--longest .nitj-streak-icon::after {
+          grid-area: 1 / 1;
+          width: 2px;
+          height: 12px;
+          background: currentColor;
+          content: "";
+        }
       `;
       document.head.appendChild(style);
     }
@@ -346,8 +418,11 @@ background: #0d1b2a;
       ? []
       : renderedMonths.flatMap(({ days }) => Object.values(days));
     const streaks = calculateStreaks(classDays);
-    const streakLabel = (count) =>
-      count === null ? "Unavailable" : `${count} ${count === 1 ? "class" : "classes"}`;
+    const streakCard = (label, count, variant) => `
+      <div class="nitj-streak nitj-streak--${variant}${count === null ? " nitj-streak--empty" : ""}">
+        <dt><span class="nitj-streak-icon" aria-hidden="true"></span>${label}</dt>
+        <dd>${count === null ? "Unavailable" : `${count} ${count === 1 ? "class" : "classes"}`}</dd>
+      </div>`;
 
     const shellHTML = `
       <div id="nitj-calendar-shell">
@@ -361,10 +436,10 @@ background: #0d1b2a;
               Normal view
             </button>
           </div>
-          <div class="nitj-cal-stats">
-            <span>Current streak: <b>${streakLabel(streaks.current)}</b></span>
-            <span>Longest streak: <b>${streakLabel(streaks.longest)}</b></span>
-          </div>
+          <dl class="nitj-streaks">
+            ${streakCard("Current Streak", streaks.current, "current")}
+            ${streakCard("Longest Streak", streaks.longest, "longest")}
+          </dl>
         </div>
         <div id="nitj-att-calendar" hidden>
           <div class="nitj-cal-stats">
