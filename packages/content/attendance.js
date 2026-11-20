@@ -1,6 +1,86 @@
+import {
+  calculateDeficit,
+  calculateScenario,
+  TARGET_PERCENT,
+} from "../core/attendance.mjs";
+
 (function () {
-  //TODO: Somehow make this 0.73 for female students and 0.75 for male students.
-  const TARGET = 0.75;
+  function injectCalculator(table, subjects) {
+    if (!subjects.length) return;
+
+    const calculator = document.createElement("details");
+    calculator.style.marginBottom = "12px";
+    calculator.innerHTML = `
+      <summary style="cursor: pointer; font-weight: bold">What if?</summary>
+      <div style="display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px">
+        <label style="flex: 1 1 220px; min-width: 0">
+          Subject
+          <select class="form-control input-sm"></select>
+        </label>
+        <div style="display: flex; flex: 0 1 292px; gap: 12px; min-width: 0">
+          <label style="flex: 1; min-width: 0">
+            Classes to attend
+            <input class="form-control input-sm" type="number" min="0" step="1" value="0">
+          </label>
+          <label style="flex: 1; min-width: 0">
+            Classes to miss
+            <input class="form-control input-sm" type="number" min="0" step="1" value="0">
+          </label>
+        </div>
+      </div>
+      <output style="display: block; margin-top: 4px; font-size: inherit; color: inherit" aria-live="polite"></output>`;
+
+    const select = calculator.querySelector("select");
+    const inputs = [...calculator.querySelectorAll("input")];
+    const output = calculator.querySelector("output");
+    for (const subject of subjects) {
+      select.add(new Option(subject.name));
+    }
+
+    function update() {
+      if (inputs.some((input) => !input.validity.valid)) {
+        output.textContent = "Enter whole numbers of classes, zero or more.";
+        return;
+      }
+
+      const { attended, delivered } = subjects[select.selectedIndex];
+      const [futureAttended, futureMissed] = inputs.map((input) =>
+        input.value === "" ? 0 : input.valueAsNumber,
+      );
+      const scenario = calculateScenario(
+        attended, delivered, futureAttended, futureMissed,
+      );
+      if (!scenario) {
+        output.textContent = "Enter smaller class counts.";
+        return;
+      }
+      if (scenario.percentage === null) {
+        output.textContent = "Projected attendance is available once at least one class is counted.";
+        return;
+      }
+
+      const { deficit } = scenario;
+      const rounded = scenario.percentage.toFixed(2);
+      const percentage = deficit < 0 && Number(rounded) >= TARGET_PERCENT
+        ? `<${TARGET_PERCENT}%`
+        : `${rounded}%`;
+      const count = Math.abs(deficit);
+      const classes = `${count} more ${count === 1 ? "class" : "classes"}`;
+      let guidance = `You meet the ${TARGET_PERCENT}% target. Attend the next class to stay there.`;
+      if (deficit < 0) {
+        guidance = `Attend ${classes} to reach ${TARGET_PERCENT}%.`;
+      } else if (deficit > 0) {
+        guidance = `You can miss ${classes} and stay at or above ${TARGET_PERCENT}%.`;
+      }
+      output.textContent = `Projected attendance ${percentage}. ${guidance}`;
+    }
+
+    calculator.addEventListener("input", update);
+    update();
+    // Keep scenario inputs out of any surrounding ERP form.
+    (table.closest("form") ?? table).before(calculator);
+  }
+
   function run() {
     if (window.location.pathname.includes("attendance_report_detail")) return;
     const tables = document.querySelectorAll(".panel-body table.table");
@@ -15,22 +95,19 @@
     th.style.fontSize = "11px";
     th.style.textAlign = "center";
     rows[0].insertBefore(th, rows[0].children[rows[0].children.length - 1]);
+    const subjects = [];
     for (let i = 1; i < rows.length; i++) {
       const cols = rows[i].querySelectorAll("td");
       if (cols.length < 6) continue;
       const delivered = parseInt(cols[2].innerText);
       const attended = parseInt(cols[3].innerText);
-      let value = 0;
-      if (attended / delivered >= TARGET) {
-        while (attended / (delivered + value + 1) >= TARGET) {
-          value++;
-        }
-      } else {
-        while ((attended + value) / (delivered + value) < TARGET) {
-          value++;
-        }
-        value = -value;
+      const deficit = calculateDeficit(attended, delivered);
+      const title = cols[1].textContent.trim();
+      if (deficit !== null && title) {
+        const code = cols[0].textContent.trim();
+        subjects.push({ name: code ? `${title} (${code})` : title, attended, delivered });
       }
+      const value = deficit ?? 0;
       const td = document.createElement("td");
       td.setAttribute("align", "center");
       td.style.color = "#000000";
@@ -53,6 +130,7 @@
       td.appendChild(badge);
       rows[i].insertBefore(td, cols[cols.length - 1]);
     }
+    injectCalculator(table, subjects);
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run);
