@@ -1,0 +1,37 @@
+.nitj-attendance-summary {
+  border: 1px solid var(--border, #d5dfeb);
+  border-radius: 8px;
+  background: var(--bg-raised, #f5f8fc);
+  color: var(--text-primary, #182538);
+  margin-top: 12px;
+  padding: 12px 16px;
+}
+
+.nitj-attendance-summary h2 {
+  margin: 0 0 4px;
+  font-size: 15px;
+  font-weight: 600;
+}
+
+.nitj-attendance-summary p {
+  margin: 0;
+  color: var(--text-secondary, #485b73);
+}
+
+.nitj-attendance-summary dl {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(88px, 1fr));
+  gap: 8px 16px;
+  margin: 10px 0 0;
+}
+
+.nitj-attendance-summary dt {
+  color: var(--text-secondary, #485b73);
+  font-size: 12px;
+}
+
+.nitj-attendance-summary dd {
+  margin: 0;
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+}

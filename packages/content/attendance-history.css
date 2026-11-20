@@ -1,0 +1,48 @@
+.nitj-attendance-history {
+  margin-top: 4px;
+  color: var(--text-secondary, #485b73);
+  font-size: 11px;
+  line-height: 1.35;
+}
+
+.nitj-attendance-history svg {
+  display: block;
+  color: var(--accent-blue, #2361b6);
+  overflow: hidden;
+}
+
+.nitj-attendance-history svg line {
+  stroke: var(--text-secondary, #485b73);
+  stroke-width: 1;
+  stroke-dasharray: 2 2;
+}
+
+.nitj-attendance-history svg path {
+  fill: none;
+  stroke: currentColor;
+  stroke-width: 1.5;
+  stroke-linecap: round;
+  stroke-linejoin: round;
+}
+
+.nitj-attendance-history svg circle {
+  fill: currentColor;
+}
+
+.nitj-attendance-momentum[data-direction="rising"] {
+  color: var(--success, #166534);
+}
+
+.nitj-attendance-momentum[data-direction="falling"] {
+  color: var(--danger, #a12020);
+}
+
+.nitj-attendance-history-description {
+  display: none;
+  max-width: 18ch;
+  margin-top: 4px;
+}
+
+.nitj-attendance-history:focus-within .nitj-attendance-history-description {
+  display: block;
+}
