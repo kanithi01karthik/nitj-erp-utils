@@ -38,6 +38,32 @@ export function calculateScenario(attended, delivered, futureAttended, futureMis
   };
 }
 
+export function calculateAttendanceWaffle(subjectTotals) {
+  if (!subjectTotals.length) return null;
+
+  let attended = 0;
+  let delivered = 0;
+  for (const totals of subjectTotals) {
+    if (!totals || !hasValidTotals(totals.attended, totals.delivered)) return null;
+    attended += totals.attended;
+    delivered += totals.delivered;
+    if (!isClassCount(delivered)) return null;
+  }
+
+  if (!delivered) return { attended, delivered, percentage: null, attendedTiles: null };
+
+  // Round the label and tiles independently from the original ratio.
+  const total = BigInt(delivered);
+  const twiceAttended = 2n * BigInt(attended);
+  const roundShare = (scale) => Number((twiceAttended * scale + total) / (2n * total));
+  return {
+    attended,
+    delivered,
+    percentage: roundShare(10000n) / 100,
+    attendedTiles: roundShare(100n),
+  };
+}
+
 export function calculateStreaks(classDays) {
   let current = 0;
   let longest = null;

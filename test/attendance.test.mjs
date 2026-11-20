@@ -1,6 +1,11 @@
 import assert from "node:assert/strict";
 import test from "node:test";
-import { calculateDeficit, calculateScenario, calculateStreaks } from "../packages/core/attendance.mjs";
+import {
+  calculateAttendanceWaffle,
+  calculateDeficit,
+  calculateScenario,
+  calculateStreaks,
+} from "../packages/core/attendance.mjs";
 
 test("deficit keeps the existing signed badge values at and around 75%", () => {
   assert.equal(calculateDeficit(18, 22), 2);
@@ -73,4 +78,39 @@ test("streaks distinguish unavailable history from a recorded zero", () => {
   assert.deepEqual(calculateStreaks([]), { current: null, longest: null });
   assert.deepEqual(calculateStreaks([[{ status: "?", startTime: 540 }]]), { current: null, longest: null });
   assert.deepEqual(calculateStreaks([[{ status: "A", startTime: 540 }]]), { current: 0, longest: 0 });
+});
+
+test("waffle uses the sum of class counts across subjects", () => {
+  const totals = [{ attended: 1, delivered: 1 }, { attended: 2, delivered: 7 }];
+  assert.deepEqual(calculateAttendanceWaffle(totals), {
+    attended: 3, delivered: 8, percentage: 37.5, attendedTiles: 38,
+  });
+});
+
+test("waffle rounds percentages and tiles independently from the original counts", () => {
+  assert.deepEqual(calculateAttendanceWaffle([{ attended: 29, delivered: 200 }]), {
+    attended: 29, delivered: 200, percentage: 14.5, attendedTiles: 15,
+  });
+  assert.deepEqual(calculateAttendanceWaffle([{ attended: 49499, delivered: 100000 }]), {
+    attended: 49499, delivered: 100000, percentage: 49.5, attendedTiles: 49,
+  });
+});
+
+test("waffle distinguishes zero classes from zero attendance and full attendance", () => {
+  assert.deepEqual(calculateAttendanceWaffle([{ attended: 0, delivered: 0 }]), {
+    attended: 0, delivered: 0, percentage: null, attendedTiles: null,
+  });
+  for (const attended of [0, 1]) {
+    assert.deepEqual(calculateAttendanceWaffle([{ attended, delivered: 1 }]), {
+      attended, delivered: 1, percentage: attended * 100, attendedTiles: attended * 100,
+    });
+  }
+});
+
+test("waffle reports missing or invalid totals instead of using a partial aggregate", () => {
+  assert.equal(calculateAttendanceWaffle([]), null);
+  const valid = { attended: 18, delivered: 24 };
+  for (const incomplete of [null, { delivered: 5 }, { attended: 6, delivered: 5 }]) {
+    assert.equal(calculateAttendanceWaffle([valid, incomplete]), null);
+  }
 });

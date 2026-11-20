@@ -1,17 +1,27 @@
 import {
+  calculateAttendanceWaffle,
   calculateDeficit,
   calculateScenario,
   TARGET_PERCENT,
 } from "../core/attendance.mjs";
 
 (function () {
-  function injectCalculator(table, subjects) {
+  function createDisclosure(label) {
+    const details = document.createElement("details");
+    details.style.marginBottom = "12px";
+    const summary = document.createElement("summary");
+    summary.style.cursor = "pointer";
+    summary.style.fontWeight = "bold";
+    summary.textContent = label;
+    details.append(summary);
+    return details;
+  }
+
+  function injectCalculator(anchor, subjects) {
     if (!subjects.length) return;
 
-    const calculator = document.createElement("details");
-    calculator.style.marginBottom = "12px";
-    calculator.innerHTML = `
-      <summary style="cursor: pointer; font-weight: bold">What if?</summary>
+    const calculator = createDisclosure("What if?");
+    calculator.insertAdjacentHTML("beforeend", `
       <div style="display: flex; flex-wrap: wrap; gap: 8px 12px; margin-top: 8px">
         <label style="flex: 1 1 220px; min-width: 0">
           Subject
@@ -28,7 +38,7 @@ import {
           </label>
         </div>
       </div>
-      <output style="display: block; margin-top: 4px; font-size: inherit; color: inherit" aria-live="polite"></output>`;
+      <output style="display: block; margin-top: 4px; font-size: inherit; color: inherit" aria-live="polite"></output>`);
 
     const select = calculator.querySelector("select");
     const inputs = [...calculator.querySelectorAll("input")];
@@ -77,8 +87,33 @@ import {
 
     calculator.addEventListener("input", update);
     update();
-    // Keep scenario inputs out of any surrounding ERP form.
-    (table.closest("form") ?? table).before(calculator);
+    anchor.before(calculator);
+  }
+
+  function injectWaffle(anchor, totals) {
+    const waffle = createDisclosure("Overall attendance");
+    const content = document.createElement("div");
+    content.style.marginTop = "8px";
+    if (!totals?.delivered) {
+      content.textContent = totals ? "No classes have been delivered." : "Overall attendance data is unavailable.";
+    } else {
+      const tile = (color) => `<span aria-hidden="true" style="display: inline-block; width: 8px; height: 8px; border-radius: 2px; background: ${color}"></span>`;
+      const attendedTile = tile("var(--success, #2e7d32)");
+      const missedTile = tile("var(--danger, #c62828)");
+      content.innerHTML = `
+        <div style="display: flex; flex-wrap: wrap; align-items: center; gap: 12px">
+          <div aria-hidden="true" style="display: grid; grid-template-columns: repeat(10, 8px); gap: 2px">
+            ${attendedTile.repeat(totals.attendedTiles)}${missedTile.repeat(100 - totals.attendedTiles)}
+          </div>
+          <div>
+            <strong>${totals.percentage.toFixed(2)}% attendance</strong>
+            <div>${attendedTile} ${totals.attended} attended</div>
+            <div>${missedTile} ${totals.delivered - totals.attended} missed</div>
+          </div>
+        </div>`;
+    }
+    waffle.append(content);
+    anchor.before(waffle);
   }
 
   function run() {
@@ -96,15 +131,29 @@ import {
     th.style.textAlign = "center";
     rows[0].insertBefore(th, rows[0].children[rows[0].children.length - 1]);
     const subjects = [];
+    const subjectTotals = [];
     for (let i = 1; i < rows.length; i++) {
-      const cols = rows[i].querySelectorAll("td");
-      if (cols.length < 6) continue;
-      const delivered = parseInt(cols[2].innerText);
-      const attended = parseInt(cols[3].innerText);
+      const row = rows[i];
+      const cols = row.querySelectorAll("td");
+      const code = cols[0]?.textContent.trim();
+      const title = cols[1]?.textContent.trim();
+      const isSubject = (code || title) && cols[0].colSpan === 1 && !row.closest("tfoot");
+      if (cols.length < 6) {
+        if (isSubject) subjectTotals.push(null);
+        continue;
+      }
+      const deliveredText = cols[2].innerText.trim();
+      const attendedText = cols[3].innerText.trim();
+      const delivered = parseInt(deliveredText);
+      const attended = parseInt(attendedText);
+      if (isSubject) {
+        const wholeCount = /^\d+$/;
+        subjectTotals.push(wholeCount.test(deliveredText) && wholeCount.test(attendedText)
+          ? { attended, delivered }
+          : null);
+      }
       const deficit = calculateDeficit(attended, delivered);
-      const title = cols[1].textContent.trim();
       if (deficit !== null && title) {
-        const code = cols[0].textContent.trim();
         subjects.push({ name: code ? `${title} (${code})` : title, attended, delivered });
       }
       const value = deficit ?? 0;
@@ -128,9 +177,12 @@ import {
         badge.textContent = value;
       }
       td.appendChild(badge);
-      rows[i].insertBefore(td, cols[cols.length - 1]);
+      row.insertBefore(td, cols[cols.length - 1]);
     }
-    injectCalculator(table, subjects);
+    // Keep scenario inputs out of any surrounding ERP form.
+    const anchor = table.closest("form") ?? table;
+    injectCalculator(anchor, subjects);
+    injectWaffle(anchor, calculateAttendanceWaffle(subjectTotals));
   }
   if (document.readyState === "loading") {
     document.addEventListener("DOMContentLoaded", run);
