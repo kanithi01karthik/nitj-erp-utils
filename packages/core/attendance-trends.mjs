@@ -4,6 +4,10 @@ const MIN_TREND_WEEKS = 3;
 // Treat movement under one percentage point per week as stable.
 const STABLE_SLOPE = 1;
 
+export function getAttendanceWeekStart(week) {
+  return new Date(FIRST_MONDAY + week * WEEK_MS);
+}
+
 export function getWeeklyAttendance(lectures) {
   const weeks = new Map();
 

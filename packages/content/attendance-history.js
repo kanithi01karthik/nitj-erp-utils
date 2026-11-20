@@ -1,5 +1,9 @@
 import { readAttendanceLectures } from "../core/attendance-details.mjs";
-import { getAttendanceTrend, getWeeklyAttendance } from "../core/attendance-trends.mjs";
+import {
+  getAttendanceTrend,
+  getAttendanceWeekStart,
+  getWeeklyAttendance,
+} from "../core/attendance-trends.mjs";
 import "./attendance-history.css";
 
 const SVG_NS = "http://www.w3.org/2000/svg";
@@ -10,6 +14,11 @@ const numberFormat = new Intl.NumberFormat(undefined, { maximumFractionDigits: 1
 const slopeFormat = new Intl.NumberFormat(undefined, {
   maximumFractionDigits: 1,
   signDisplay: "exceptZero",
+});
+const weekFormat = new Intl.DateTimeFormat(undefined, {
+  month: "short",
+  day: "numeric",
+  timeZone: "UTC",
 });
 const trendLabels = { rising: "↗ Rising", stable: "→ Stable", falling: "↘ Falling" };
 
@@ -29,34 +38,71 @@ function findDetailUrl(cell) {
   return null;
 }
 
-function renderSparkline(weeks, trend, label) {
-  const width = 76;
-  const height = 24;
-  const inset = 2;
+function renderChart(weeks, trend, label, expanded = false) {
+  const { width, height, left, right, top, bottom } = expanded
+    ? { width: 520, height: 232, left: 52, right: 14, top: 12, bottom: 30 }
+    : { width: 76, height: 24, left: 2, right: 2, top: 2, bottom: 2 };
   const firstWeek = weeks[0].week;
   const span = weeks.at(-1).week - firstWeek;
   const xFor = (elapsed) => span === 0
-    ? width / 2
-    : inset + (elapsed / span) * (width - 2 * inset);
-  const yFor = (percentage) => height - inset - (percentage / 100) * (height - 2 * inset);
+    ? (left + width - right) / 2
+    : left + (elapsed / span) * (width - left - right);
+  const yFor = (percentage) => height - bottom - (percentage / 100) * (height - top - bottom);
   const chart = document.createElementNS(SVG_NS, "svg");
+  chart.classList.add("nitj-attendance-chart");
   chart.setAttribute("viewBox", `0 0 ${width} ${height}`);
   chart.setAttribute("width", width);
   chart.setAttribute("height", height);
-  chart.setAttribute("role", "img");
-  chart.setAttribute("aria-label", label);
-  chart.setAttribute("tabindex", "0");
 
-  const title = document.createElementNS(SVG_NS, "title");
-  title.textContent = label;
-  chart.appendChild(title);
+  if (expanded) {
+    chart.setAttribute("role", "img");
+    chart.setAttribute("aria-label", label);
+    for (const percent of [0, 25, 50, 75, 100]) {
+      const y = yFor(percent);
+      const guide = document.createElementNS(SVG_NS, "line");
+      guide.classList.add("nitj-attendance-chart-guide");
+      guide.setAttribute("x1", left);
+      guide.setAttribute("x2", width - right);
+      guide.setAttribute("y1", y);
+      guide.setAttribute("y2", y);
+      chart.appendChild(guide);
+
+      const tick = document.createElementNS(SVG_NS, "text");
+      tick.setAttribute("x", left - 8);
+      tick.setAttribute("y", y);
+      tick.setAttribute("text-anchor", "end");
+      tick.setAttribute("dominant-baseline", "middle");
+      tick.textContent = `${percent}%`;
+      chart.appendChild(tick);
+    }
+
+    for (const elapsed of span === 0 ? [0] : [0, span]) {
+      const tick = document.createElementNS(SVG_NS, "text");
+      tick.setAttribute("x", xFor(elapsed));
+      tick.setAttribute("y", height - 8);
+      tick.setAttribute("text-anchor", span === 0 ? "middle" : elapsed === 0 ? "start" : "end");
+      tick.textContent = weekFormat.format(getAttendanceWeekStart(firstWeek + elapsed));
+      chart.appendChild(tick);
+    }
+  } else {
+    chart.setAttribute("aria-hidden", "true");
+  }
 
   if (trend) {
+    let start = 0;
+    let end = span;
+    if (trend.slope !== 0) {
+      const atZero = -trend.intercept / trend.slope;
+      const atHundred = (100 - trend.intercept) / trend.slope;
+      start = Math.max(0, Math.min(atZero, atHundred));
+      end = Math.min(span, Math.max(atZero, atHundred));
+    }
     const trendline = document.createElementNS(SVG_NS, "line");
-    trendline.setAttribute("x1", xFor(0));
-    trendline.setAttribute("x2", xFor(span));
-    trendline.setAttribute("y1", yFor(trend.intercept));
-    trendline.setAttribute("y2", yFor(trend.intercept + trend.slope * span));
+    trendline.classList.add("nitj-attendance-chart-trend");
+    trendline.setAttribute("x1", xFor(start));
+    trendline.setAttribute("x2", xFor(end));
+    trendline.setAttribute("y1", yFor(trend.intercept + trend.slope * start));
+    trendline.setAttribute("y2", yFor(trend.intercept + trend.slope * end));
     chart.appendChild(trendline);
   }
 
@@ -74,11 +120,47 @@ function renderSparkline(weeks, trend, label) {
     const dot = document.createElementNS(SVG_NS, "circle");
     dot.setAttribute("cx", x);
     dot.setAttribute("cy", y);
-    dot.setAttribute("r", "1.5");
+    dot.setAttribute("r", expanded ? "3" : "1.5");
+    if (expanded) {
+      const title = document.createElementNS(SVG_NS, "title");
+      title.textContent = `Week of ${weekFormat.format(getAttendanceWeekStart(week))} · ${numberFormat.format(percentage)}%`;
+      dot.appendChild(title);
+    }
     chart.appendChild(dot);
   }
   line.setAttribute("d", commands.join(" "));
   return chart;
+}
+
+function openChart(trigger, weeks, trend, courseCode, description) {
+  const dialog = document.createElement("dialog");
+  dialog.className = "nitj-attendance-chart-dialog";
+
+  const header = document.createElement("div");
+  header.className = "nitj-attendance-chart-dialog-header";
+  const heading = document.createElement("h2");
+  heading.id = "nitj-attendance-chart-heading";
+  heading.textContent = `${courseCode} weekly attendance`;
+  const close = document.createElement("button");
+  close.type = "button";
+  close.autofocus = true;
+  close.textContent = "Close";
+  close.addEventListener("click", () => dialog.close());
+  header.append(heading, close);
+
+  const caption = document.createElement("p");
+  caption.id = "nitj-attendance-chart-description";
+  caption.textContent = description;
+  dialog.setAttribute("aria-labelledby", heading.id);
+  dialog.setAttribute("aria-describedby", caption.id);
+  dialog.append(header, caption, renderChart(weeks, trend, heading.textContent, true));
+
+  dialog.addEventListener("close", () => {
+    dialog.remove();
+    trigger.focus();
+  }, { once: true });
+  document.body.appendChild(dialog);
+  dialog.showModal();
 }
 
 function renderHistory(container, weeks, courseCode) {
@@ -101,12 +183,16 @@ function renderHistory(container, weeks, courseCode) {
   const slope = trend
     ? `Dashed trend ${slopeFormat.format(trend.slope)} percentage points per week.`
     : "Trend needs at least three recorded weeks.";
-  const label = `Weekly attendance for ${courseCode}. ${change} ${slope}`;
-  const description = document.createElement("span");
-  description.className = "nitj-attendance-history-description";
-  description.setAttribute("aria-hidden", "true");
-  description.textContent = label;
-  container.replaceChildren(renderSparkline(weeks, trend, label), badge, description);
+  const description = `${change} ${slope}`;
+  const trigger = document.createElement("button");
+  trigger.className = "nitj-attendance-chart-trigger";
+  trigger.type = "button";
+  trigger.title = "Expand weekly attendance chart";
+  trigger.setAttribute("aria-haspopup", "dialog");
+  trigger.setAttribute("aria-label", `Expand weekly attendance chart for ${courseCode}. ${description}`);
+  trigger.appendChild(renderChart(weeks, trend, ""));
+  trigger.addEventListener("click", () => openChart(trigger, weeks, trend, courseCode, description));
+  container.replaceChildren(trigger, badge);
 }
 
 async function loadHistory({ url, container, courseCode }) {

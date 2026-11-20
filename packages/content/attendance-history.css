@@ -5,19 +5,18 @@
   line-height: 1.35;
 }
 
-.nitj-attendance-history svg {
+.nitj-attendance-chart {
   display: block;
   color: var(--accent-blue, #2361b6);
-  overflow: hidden;
 }
 
-.nitj-attendance-history svg line {
+.nitj-attendance-chart-trend {
   stroke: var(--text-secondary, #485b73);
   stroke-width: 1;
   stroke-dasharray: 2 2;
 }
 
-.nitj-attendance-history svg path {
+.nitj-attendance-chart path {
   fill: none;
   stroke: currentColor;
   stroke-width: 1.5;
@@ -25,8 +24,23 @@
   stroke-linejoin: round;
 }
 
-.nitj-attendance-history svg circle {
+.nitj-attendance-chart circle {
   fill: currentColor;
+}
+
+.nitj-attendance-chart-trigger {
+  display: block;
+  padding: 3px 5px;
+  border: 1px solid var(--border, #d5dfeb);
+  border-radius: 5px;
+  background: var(--bg-raised, #f5f8fc);
+  cursor: zoom-in;
+}
+
+.nitj-attendance-chart-trigger:hover,
+.nitj-attendance-chart-trigger:focus-visible {
+  border-color: var(--accent-blue, #2361b6);
+  background: var(--bg-hover, #e7eff9);
 }
 
 .nitj-attendance-momentum[data-direction="rising"] {
@@ -37,12 +51,65 @@
   color: var(--danger, #a12020);
 }
 
-.nitj-attendance-history-description {
-  display: none;
-  max-width: 18ch;
-  margin-top: 4px;
+.nitj-attendance-chart-dialog {
+  box-sizing: border-box;
+  width: min(640px, calc(100% - 24px));
+  max-height: calc(100% - 24px);
+  padding: 18px;
+  border: 1px solid var(--border, #d5dfeb);
+  border-radius: 10px;
+  background: var(--bg-panel, #fff);
+  color: var(--text-primary, #182538);
+  box-shadow: 0 12px 48px rgb(0 0 0 / 25%);
 }
 
-.nitj-attendance-history:focus-within .nitj-attendance-history-description {
-  display: block;
+.nitj-attendance-chart-dialog::backdrop {
+  background: rgb(0 0 0 / 55%);
+}
+
+.nitj-attendance-chart-dialog-header {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+.nitj-attendance-chart-dialog h2 {
+  margin: 0;
+  font-size: 18px;
+  font-weight: 600;
+}
+
+.nitj-attendance-chart-dialog button {
+  padding: 5px 12px;
+  border: 1px solid var(--border, #d5dfeb);
+  border-radius: 5px;
+  background: var(--bg-raised, #f5f8fc);
+  color: inherit;
+  cursor: pointer;
+}
+
+.nitj-attendance-chart-dialog p {
+  margin: 8px 0 12px;
+  color: var(--text-secondary, #485b73);
+  font-size: 13px;
+}
+
+.nitj-attendance-chart-dialog .nitj-attendance-chart {
+  width: 100%;
+  height: auto;
+}
+
+.nitj-attendance-chart-dialog .nitj-attendance-chart-trend {
+  stroke-dasharray: 5 4;
+}
+
+.nitj-attendance-chart-guide {
+  stroke: var(--border, #d5dfeb);
+  stroke-width: 1;
+}
+
+.nitj-attendance-chart text {
+  fill: var(--text-secondary, #485b73);
+  font-size: 13px;
 }
